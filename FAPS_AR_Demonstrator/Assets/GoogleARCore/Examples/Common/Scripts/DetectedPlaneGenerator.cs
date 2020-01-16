@@ -33,7 +33,7 @@ namespace GoogleARCore.Examples.Common
         /// A prefab for tracking and visualizing detected planes.
         /// </summary>
         public GameObject DetectedPlanePrefab;
-
+        bool ShowMesh = true;
         /// <summary>
         /// A list to hold new planes ARCore began tracking in the current frame. This object is
         /// used across the application to avoid per-frame allocations.
@@ -43,6 +43,11 @@ namespace GoogleARCore.Examples.Common
         /// <summary>
         /// The Unity Update method.
         /// </summary>
+        public void Awake()
+        {
+            ShowMesh = true;
+        }
+
         public void Update()
         {
             // Check that motion tracking is tracking.
@@ -62,7 +67,25 @@ namespace GoogleARCore.Examples.Common
                 GameObject planeObject =
                     Instantiate(DetectedPlanePrefab, Vector3.zero, Quaternion.identity, transform);
                 planeObject.GetComponent<DetectedPlaneVisualizer>().Initialize(m_NewPlanes[i]);
+                if (planeObject.GetComponentInChildren<MeshRenderer>() != null)
+                {
+                    planeObject.SetActive(ShowMesh);
+                }
             }
+        }
+
+        public void ToggleMeshVisibility(bool mode)
+        {
+            ShowMesh = mode;
+            GameObject[] Planes = GameObject.FindGameObjectsWithTag("Plane");
+            foreach (GameObject p in Planes)
+            {
+                if (p.GetComponentInChildren<MeshRenderer>() != null)
+                {
+                    p.SetActive(mode);
+                }
+            }
+
         }
     }
 }

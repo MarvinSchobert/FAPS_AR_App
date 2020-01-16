@@ -48,8 +48,9 @@ namespace GoogleARCore.Examples.CloudAnchors
             public string sign;
             public string gName;
         }
+#pragma warning disable 618
         public class SyncListMessageItem : SyncListStruct<SyncListMsgStrings> { }
-
+#pragma warning restore 618
 
         public SyncListMessageItem MessageItems = new SyncListMessageItem();
 
@@ -134,8 +135,9 @@ namespace GoogleARCore.Examples.CloudAnchors
                 //GUILayout.Box(GameObject.Find("CloudAnchorsExampleController").GetComponent<CloudAnchorsExampleController>().Test.Count.ToString());
             }
         }
-
+#pragma warning disable 618
         [Command]
+#pragma warning restore 618
         void CmdDoTest(SyncListMsgStrings parameter)
         {
             SynchronizeMessageItem(parameter);
@@ -151,8 +153,9 @@ namespace GoogleARCore.Examples.CloudAnchors
             Debug.Log("Cmd Test");
 
         }
-        
+#pragma warning disable 618
         [ClientRpc]
+#pragma warning restore 618
         void RpcTest(SyncListMsgStrings parameter)
         {
             SynchronizeMessageItem(parameter);

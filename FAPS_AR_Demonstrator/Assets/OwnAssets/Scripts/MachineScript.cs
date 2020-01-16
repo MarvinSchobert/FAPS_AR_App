@@ -29,6 +29,7 @@ public class MachineScript : MonoBehaviour
 
     // Für Testzwecke!!!!
     public bool MachineReady;
+    // public GameObject cb;
 
     // Initital Transform
 
@@ -103,6 +104,12 @@ public class MachineScript : MonoBehaviour
             g.SetActive(false);
         }
 
+        /*
+        cb = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cb.transform.localScale *= 0.1f;
+        cb.transform.position = Surface.CenterPose.position;
+        ipos = cb.transform.position;
+        */
         StartCoroutine(simulate());
         StartCoroutine(_Update());
 
@@ -110,6 +117,7 @@ public class MachineScript : MonoBehaviour
 
     }
 
+    // Vector3 ipos_;
     GameObject c;
 
     public void ApplyOffsetFromPlayerPrefs()
@@ -183,9 +191,6 @@ public class MachineScript : MonoBehaviour
             {
                 LostImageTracking = true;
             }
-
-            // Wenn der Anchor weg ist, setze einen neuen!
-
 
             /////////////////////////////////////////////////////// Update Info Values
 

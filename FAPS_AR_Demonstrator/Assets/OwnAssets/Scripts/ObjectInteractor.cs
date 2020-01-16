@@ -25,6 +25,7 @@ public class ObjectInteractor : MonoBehaviour
     {
         allowMovement = true;
         MovementSensibility = 3f;
+        LockZ_Axes = true;
     }
 
     public void SetSelectedMachine(GameObject machine)

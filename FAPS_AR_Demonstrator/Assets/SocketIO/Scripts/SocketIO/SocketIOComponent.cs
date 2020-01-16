@@ -317,12 +317,15 @@ namespace SocketIO
 			
 			try {
 				ws.Send(encoder.Encode(packet));
-			} catch(SocketIOException ex) {
-				#if SOCKET_IO_DEBUG
-				debugMethod.Invoke(ex.ToString());
-				#endif
+                #pragma warning disable 618
 			}
-		}
+            catch (SocketIOException ex) {
+
+                #if SOCKET_IO_DEBUG
+				debugMethod.Invoke(ex.ToString());
+                #endif
+            }
+        }
 
 		private void OnOpen(object sender, EventArgs e)
 		{
@@ -417,12 +420,16 @@ namespace SocketIO
 			foreach (Action<SocketIOEvent> handler in this.handlers[ev.name]) {
 				try{
 					handler(ev);
-				} catch(Exception ex){
-					#if SOCKET_IO_DEBUG
-					debugMethod.Invoke(ex.ToString());
-					#endif
 				}
-			}
+                catch (Exception ex){
+
+
+
+                    #if SOCKET_IO_DEBUG
+					debugMethod.Invoke(ex.ToString());
+                    #endif
+            }
+        }
 		}
 
 		private void InvokeAck(Packet packet)

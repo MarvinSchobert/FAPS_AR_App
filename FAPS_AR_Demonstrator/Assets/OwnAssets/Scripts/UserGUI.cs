@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-
+using GoogleARCore.Examples.Common;
 public class MyObject
 {
     public int value;
@@ -16,29 +16,11 @@ public class UserGUI : MonoBehaviour
 
     [InspectorName("GUI Components")]
     public GameObject MotorInfoText;
-    public GameObject DebugText;
     public GameObject SceneControl;
-    public GameObject DetectedPlaneVis;
-    public GameObject PointCloudVis;
     public GameObject HelperText;
     public GameObject WarningSign;
-    public GameObject ChatWindowContent;
     public GameObject MessageItemTemplateObject;
-    public UnityEngine.UI.InputField InputField;
-
-    public GameObject OptionsMenu;
-    public UnityEngine.UI.Button ToggleOptionsMenuButton;
-    public UnityEngine.UI.Dropdown SelectedMachineDropdown;
-    public UnityEngine.UI.Button ToggleCADButton;
-    public UnityEngine.UI.Button TogglePlaneMeshButton;
-    public UnityEngine.UI.Button ChangeSensitivityButton;
-    public UnityEngine.UI.Button ChangeLockMovementButton;
-    public UnityEngine.UI.Button ChangeMovementModeButton;
-    public UnityEngine.UI.Button ToggleSecurityModeButton;
-    public GameObject CloudAnchorComponents;
-
     
-    public static bool EnableCloud = false;
    
 
     public Material SelectedWhite;
@@ -48,21 +30,15 @@ public class UserGUI : MonoBehaviour
 
     public GameObject MotorWindow;
     public GameObject PortalWindow;
-    private List<GameObject> MotorWindowButtons;
 
     [InspectorName("Others")]
     public ObjectInteractor Interactor;
+    public DetectedPlaneGenerator DetectedPlaneGen;
 
-    private bool optionMenuEnabled = false;
-    private bool cadModelEnabled = true;
-    private bool planeMeshEnabled = true;
-    private int moveAxesLockMode = 0; //0: Frei, 1: LockZ, 2: LockX, 3: LockXZ
     public int movementMode = 0; //0: Machine, 1: SelektiertesObjekt
     public LayerMask TransparentLayer;
     private List<GameObject> SelectableMachines;
-    private string MessageInputString;
     
-    public int amountDebugMsgs;
     public struct HelperMsgs
     {
         public string MsgInfo;
@@ -75,7 +51,6 @@ public class UserGUI : MonoBehaviour
         public bool IsVisible;
         public void SetIsVisible(bool mode)
         {
-            Debug.Log("changed mode");
             IsVisible = mode;
         }
         public bool GetIsVisible()
@@ -114,7 +89,6 @@ public class UserGUI : MonoBehaviour
     
 
     List<HelperMsgs> HelperMsgsList = new List<HelperMsgs>();
-    List<string> displayTextDebug;
 
     int SafetyMode = 0; // 0: Maschine bestimmt ob an/ aus, 1: immer an, 2: immer aus
     public bool AllowEnter = false; // 0: Maschine ist nicht in Bewegung, es darf also betreten werden, 1: Maschine ist in Bewegung, Zutritt nicht erlaubt
@@ -143,178 +117,15 @@ public class UserGUI : MonoBehaviour
         Set_HelperMsg(h1.MsgInfo);
 
         SelectableMachines = new List<GameObject>();
-        displayTextDebug = new List<string>();
-        ChangeSensitivityButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nSense: 3";
 
-
-        MotorWindowButtons = new List<GameObject>();
+        
         UnityEngine.UI.Button[] b = LowInfoField.GetComponentsInChildren<UnityEngine.UI.Button>();
-        foreach (UnityEngine.UI.Button b1 in b)
-        {
-            MotorWindowButtons.Add(b1.gameObject);
-        }
     }
-    public void ButtonClickCallback(int ID)
-    {
-        switch (ID)
-        {
-            case 1:
-                // toggle OptionsMenu Visibility
-                ToggleOptionsMenuVisibility();
-                break;
-            case 2:
-                // toggle CAD Model Visibility
-                ToggleCADModelVisibility();
-                break;
-            case 3:
-                // toggle DetectedPlane Mesh Visibility
-                TogglePlaneMeshVisibility();
-                break;
-            case 4:
-                // Reset Scene
-                ResetScene();
-                break;
-            case 5:
-                // Change movement Sensibility
-                SetMovementSensibility();
-                break;
-            case 6:
-                // Toggle Debug Window Visibility
-                ToggleDebugWindowVisibility();
-                break;
-            case 7:
-                // Deselect Machine
-                DeselectMachine();
-                break;
-            case 8:
-                // Set next Tipp
-                SetNextTipp();
-                GUI_Debug("Set new ID BUTTON!");
-                break;
-            case 9:
-                // Lock ObjectManipulation to certain axes
-                LockObjectInteractionAxes();
-                break;
-            case 10:
-                // Save ObjectManipulation to PlayerPrefs
-                SaveInPlayerPrefs();
-                break;
-            case 11:
-                // Load ObjectManipulation from PlayerPrefs
-                LoadFromPlayerPrefs();
-                break;
-            case 12:
-                // Toggle MoveMachine/ MoveObject
-                SetMovementMode();
-                break;
-            case 13:
-                // Testzwecke 
-                if (Interactor.SelectedMachine.GetComponent<MachineScript>() != null)
-                {
-                    Interactor.SelectedMachine.GetComponent<MachineScript>().MachineReady = !Interactor.SelectedMachine.GetComponent<MachineScript>().MachineReady;
-                }
-                break;
-            case 14:
-                // Add MessageItem to Motor
-                // Invoking, that input string can be edited first
-                Invoke ("SetNewMessageItem", 0.2f);
-                break;
-            case 15:
-                // AR Cloud Menu enable
-                if (!EnableCloud)
-                {
-
-                    ////////////////// (UN)COMMENT FOR CLOUD USE ////////////////
-
-                    EnableCloud = !EnableCloud;
-                    CloudAnchorComponents.SetActive(true);
-                }
-                break;
-        }
-
-    }
-
-    /// <summary>
-    /// Button functions
-    /// </summary>
     
-    void SetNewMessageItem()
-    {
-        if (Interactor.SelectedObject.GetComponent<MotorScript>() != null)
-        {
-            GUI_Debug("Added new Chat Message");
-            MessageItem item = MessageItem.CreateInstance("MessageItem") as MessageItem;
-            item.AddText(MessageInputString, UnityEngine.SystemInfo.deviceName);
-            Interactor.SelectedObject.GetComponent<MotorScript>().Info.MessageItems.Add(item);
 
-            // Add to current chat display this message
-            GameObject go = GameObject.Instantiate(MessageItemTemplateObject, ChatWindowContent.transform);
-            go.transform.Find("Text").GetComponent<UnityEngine.UI.Text>().text = item.MessageText;
-            go.transform.Find("SignatureText").GetComponent<UnityEngine.UI.Text>().text = item.SignatureText;
+    
 
-            // Send Message via Network
-            GameObject g = GameObject.Find("LocalPlayer");
-            if (g != null)
-            {
-                string[] param = new string[] { MessageInputString, UnityEngine.SystemInfo.deviceName , Interactor.SelectedObject.transform.parent.name};
-                g.SendMessage("SendMessageViaNetwork", param, SendMessageOptions.DontRequireReceiver);
-            }
-        }
-    }
-
-    private float SafetyButtonPressTime = 0;
-    public void SetSafetyMode(int mode)
-    {
-        // Mode = 0: down, mode = 1: up
-        if (mode == 0)
-        {
-            SafetyButtonPressTime = Time.realtimeSinceStartup;
-        }
-        else if (mode == 1)
-        {
-            float timeDelta = Time.realtimeSinceStartup - SafetyButtonPressTime;
-
-            if (Interactor.SelectedMachine != null)
-            {
-                // kurz: Maschinenkontrolle aus
-                if (timeDelta < 1.0f)
-                {
-                    // immer an   
-                    if (SafetyMode == 0 || SafetyMode == 2)
-                    {
-                        SafetyMode = 1;
-                        Interactor.SelectedMachine.GetComponent<MachineScript>().CheckHumanCollision.ActivateDetection = true;
-                        GUI_Debug("Detection always on");
-                        StartCoroutine(ToggleWall());
-
-                    }
-                    // immer aus
-                    else if (SafetyMode == 1)
-                    {
-                        SafetyMode = 2;
-                        Interactor.SelectedMachine.GetComponent<MachineScript>().CheckHumanCollision.ActivateDetection = false;
-                        WarningSign.SetActive(false);
-                        Interactor.SelectedMachine.GetComponent<MachineScript>().CheckHumanCollision.HumanIsInside = false;
-                        GUI_Debug("Detection always off");
-                        StartCoroutine(ToggleWall());
-                    }
-                }
-                // lang: Maschinenkontrolle an
-                else
-                {
-                    if (true)
-                    {
-                        SafetyMode = 0;
-                        Interactor.SelectedMachine.GetComponent<MachineScript>().CheckHumanCollision.ActivateDetection = true;
-                        GUI_Debug("Detection dependent on Machine Signal");
-                        StartCoroutine(ToggleWall());
-
-                    }
-                }
-            }
-        }
-    }
-
+    
     public IEnumerator ToggleWall()
     {
         if (Interactor.SelectedMachine.GetComponent<MachineScript>() == null)
@@ -415,125 +226,8 @@ public class UserGUI : MonoBehaviour
             yield return null;
         }
     }
-
-    void ToggleOptionsMenuVisibility()
-    {
-        //GUI_Debug("Toggle Options Menu Visibility");
-        if (optionMenuEnabled)
-        {
-            optionMenuEnabled = false;
-            OptionsMenu.SetActive(false);
-        } else
-        {
-            optionMenuEnabled = true;
-            OptionsMenu.SetActive(true);
-        }
-    }
-    void ToggleCADModelVisibility()
-    {
-        //GUI_Debug("Toggle CAD model visibility");
-        if (cadModelEnabled && SelectedMachineDropdown.value != 0)
-        {
-            cadModelEnabled = false;
-            Interactor.allowMovement = false;
-            MeshRenderer[] rend = SelectableMachines[SelectedMachineDropdown.value - 1].GetComponentsInChildren<MeshRenderer>();
-            foreach (MeshRenderer r in rend)
-            {
-                if (r.gameObject.name != "Fence")
-                    r.enabled = false;
-            }
-        }
-        else if (SelectedMachineDropdown.value != 0)
-        {
-            cadModelEnabled = true;
-            Interactor.allowMovement = true;
-            MeshRenderer[] rend = SelectableMachines[SelectedMachineDropdown.value - 1].GetComponentsInChildren<MeshRenderer>();
-            foreach (MeshRenderer r in rend)
-            {
-                r.enabled = true;
-            }
-        }
-    }
-
-    private void SaveInPlayerPrefs()
-    {
-        if (Interactor.SelectedMachine != null)
-        {
-            Interactor.SelectedMachine.GetComponent<MachineScript>().SaveTransformManipulationValues();
-        }
-    }
-
-    private void LoadFromPlayerPrefs()
-    {
-        if (Interactor.SelectedMachine != null)
-        {
-            Interactor.SelectedMachine.GetComponent<MachineScript>().ApplyOffsetFromPlayerPrefs();
-        }
-    }
-
-    private void LockObjectInteractionAxes()
-    {
-        moveAxesLockMode++;
-        if (moveAxesLockMode == 4)
-        {
-            moveAxesLockMode = 0;
-        }
-
-        switch (moveAxesLockMode)
-        {
-            case 0:
-                ChangeLockMovementButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nLock: /";
-                Interactor.LockX_Axes = false;
-                Interactor.LockZ_Axes = false;
-                break;
-            case 1:
-                ChangeLockMovementButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nLock: Z";
-                Interactor.LockX_Axes = false;
-                Interactor.LockZ_Axes = true;
-                break;
-            case 2:
-                ChangeLockMovementButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nLock: X";
-                Interactor.LockX_Axes = true;
-                Interactor.LockZ_Axes = false;
-                break;
-            case 3:
-                ChangeLockMovementButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nLock: X&Z";
-                Interactor.LockX_Axes = true;
-                Interactor.LockZ_Axes = true;
-                break;
-
-        }
-
-    }
-
-    // Callbackfunktion für Movement Mode
-    private void SetMovementMode()
-    {
-        if (movementMode == 0)
-        {
-            movementMode = 1;
-            ChangeMovementModeButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nMotor";
-        }
-        else if (movementMode == 1)
-        {
-            movementMode = 0;
-            ChangeMovementModeButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nMachine";
-        }
-    }
-
-    // Callbackfunktion für Movement Sensibility
-    private void SetMovementSensibility()
-    {
-        //GUI_Debug("Change Movemement");
-        if (Interactor.MovementSensibility < 5)
-        {
-            Interactor.MovementSensibility++;
-        } else
-        {
-            Interactor.MovementSensibility = 1;
-        }
-        ChangeSensitivityButton.GetComponentInChildren<UnityEngine.UI.Text>().text = "\n \n \nSense: " + Interactor.MovementSensibility;
-    }
+    
+    
 
     // Callbackfunktion, wenn ein Motor selektiert ist und ein Menüpunkt angeklickt wurde
     // --> GUI Sprechblase personalisieren
@@ -812,146 +506,40 @@ public class UserGUI : MonoBehaviour
 
                 MotorWindow.SetActive(false);
 
-            }
-            int counter = 0;
-            foreach (Transform item in ChatWindowContent.transform.GetComponentInChildren<Transform>())
-            {
-                if (item.gameObject.name.Contains("Message"))
-                {
-                    Destroy(item.gameObject);
-                }
-            }
-
-            // Message Items anzeigen
-            foreach (MessageItem item in SelectedMotorInfo.MessageItems)
-            {
-                counter++;
-                GameObject go = GameObject.Instantiate(MessageItemTemplateObject, ChatWindowContent.transform);
-                go.transform.Find("Text").GetComponent<UnityEngine.UI.Text>().text = item.MessageText;
-                go.transform.Find("SignatureText").GetComponent<UnityEngine.UI.Text>().text = item.SignatureText;
-            }
-           // GUI_Debug("Found " + counter + " Items");
+            }           
         }
         else
         {
             // Neuer Motor angeklickt
         }
     }
-
-
-    void TogglePlaneMeshVisibility()
-    {
-        //GUI_Debug("Toggles Plane Mesh Visibility");
-        if (planeMeshEnabled)
-        {
-            PointCloudVis.SendMessage("EnableMesh", false, SendMessageOptions.DontRequireReceiver);
-            DetectedPlaneVis.SendMessage("EnableMesh", false, SendMessageOptions.DontRequireReceiver);
-            planeMeshEnabled = false;
-        }else
-        {
-            PointCloudVis.SendMessage("EnableMesh", true, SendMessageOptions.DontRequireReceiver);
-            DetectedPlaneVis.SendMessage("EnableMesh", true, SendMessageOptions.DontRequireReceiver);
-            planeMeshEnabled = true;
-        }
-    }
-
-    public void SetMachineSelectable()
-    {
-        SelectedMachineDropdown.RefreshShownValue();
-        //GUI_Debug("Changed Value");
-        if (SelectedMachineDropdown.value != 0)
-        {
-            GUI_Debug("Set Machine: " + SelectedMachineDropdown.value);
-            Interactor.SetSelectedMachine(SelectableMachines[SelectedMachineDropdown.value - 1]);
-            
-        }else
-        {
-            Interactor.SetSelectedMachine(null);
-        }
-    }
-
-    void ToggleDebugWindowVisibility()
-    {
-        //GUI_Debug("Toggles Debug Window");
-        if (DebugText.activeInHierarchy)
-        {
-            DebugText.SetActive(false);
-        }else
-        {
-            DebugText.SetActive(true);
-        }
-    }
-
+    
     void DeselectMachine()
     {
         LowInfoField.SetActive(false);
         Interactor.SetSelectedMachine(null);
         //GUI_Debug("Deselected machine");
     }
-
-    // Add more Machines to Scene
-    void ResetScene()
-    {
-        /*if (SelectedMachineDropdown.value != 0)
-        {
-            SceneControl.SendMessage("ResetScene", SendMessageOptions.DontRequireReceiver);
-            //Destroy(SelectableMachines[SelectedMachineDropdown.value - 1]);
-        }*/
-        SceneControl.SendMessage("ResetScene", SendMessageOptions.DontRequireReceiver);
-
-    }
+    
   
     public void AddMachineSelectable(GameObject selectable)
     {        
         SelectableMachines.Add(selectable);
+        Interactor.SetSelectedMachine(selectable);
+        DetectedPlaneGen.ToggleMeshVisibility(false);
+}
 
-        UnityEngine.UI.Dropdown.OptionData optionData = new UnityEngine.UI.Dropdown.OptionData
-        {
-            text = selectable.name
-        };
-
-        SelectedMachineDropdown.options.Add(optionData);
-        SelectedMachineDropdown.RefreshShownValue();
-        GUI_Debug("Adds: " + selectable.name);
-
-    }
-
-    void SetNextTipp()
-    {
-        int rnd = Random.Range(2, 9);
-        switch (rnd)
-        {
-            case 2:
-                Set_HelperMsg(HelperMsgsList[2].MsgInfo);
-                break;
-            case 3:
-                Set_HelperMsg("The visibility of the machine's CAD Model can be toggled via the button CAD in the FAPS menu.");
-                break;
-            case 4:
-                Set_HelperMsg("The sensitivity of the machine's transform manipulation can be edited via the Sense button in the FAPS menu.");
-                break;
-            case 5:
-                Set_HelperMsg("Manipulating a machine is only possible, if the machine is beeing selected.");
-                break;
-            case 6:
-                Set_HelperMsg("The surface plane visualization can be switched off in the FAPS menu with the Surface button.");
-                break;
-            case 7:
-                Set_HelperMsg("Transform manipulation is only possible in the X-Axes. In order to move in the Y-Direction, walk around the physical machine.");
-                break;
-            case 8:
-                Set_HelperMsg("Once the machines CAD model is adjusted, you can turn it off and still access the e.g. motor's data by clicking on the physical image of it.");
-                break;
-        }
-    }
-
+    
     public void Set_HelperMsg(string msg)
     {
-        // HelperText.GetComponent<UnityEngine.UI.Text>().text = msg;
+        HelperText.GetComponent<UnityEngine.UI.Text>().text = msg;
     }
 
     public void GUI_Debug (string text)
     {
+        /*
+         * DISABLED FOR VERSION 1.0
+         * 
         displayTextDebug.Add(text);
         int removeItems = displayTextDebug.Count - amountDebugMsgs;
         if (removeItems > 0)
@@ -963,11 +551,8 @@ public class UserGUI : MonoBehaviour
         {
             DebugText.GetComponentInChildren<UnityEngine.UI.Text>().text += s + "\n";
         }
-        
-
+        */
     }
-    public UnityEngine.UI.Text t;
-
     // Update is called once per frame
     void Update()
     {
@@ -977,11 +562,5 @@ public class UserGUI : MonoBehaviour
         {
             transform.SetAsLastSibling();
         }
-    }
-
-    public void OnMessageInputEnd()
-    {
-        MessageInputString = InputField.text;
-        InputField.text = "";
-    }
+    }    
 }

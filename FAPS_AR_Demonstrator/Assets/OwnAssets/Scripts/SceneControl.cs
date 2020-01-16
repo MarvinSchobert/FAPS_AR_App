@@ -18,6 +18,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+
 namespace GoogleARCore.Examples.AugmentedImage
 {
     using System.Collections.Generic;
@@ -27,7 +28,7 @@ namespace GoogleARCore.Examples.AugmentedImage
     using UnityEngine.UI;
     using UnityEngine.EventSystems;
     using System.Collections;
-   
+
     /// <summary>
     /// Controller for AugmentedImage example.
     /// </summary>
@@ -41,23 +42,30 @@ namespace GoogleARCore.Examples.AugmentedImage
     /// Recognize and Augment Images</a>
     /// </remarks>
     /// 
-    
+
     public class SceneControl : MonoBehaviour
     {
         /// <summary>
         /// A prefab for visualizing an AugmentedImage.
         /// </summary>
+        /// 
+
+        [System.Serializable]
+        public struct ImageNameMatch
+        {
+            public string ImageName;
+            public GameObject InstantiateObject;
+        }
         public AugmentedImageVisualizer AugmentedImageVisualizerPrefab;
         public UserGUI User_GUI;
         public ObjectInteractor interactor;
 
         public bool SimulateWithMouse;
-
+        public List<ImageNameMatch> ImageNameMatches = new List<ImageNameMatch>();
         /// <summary>
         /// The overlay containing the fit to scan user guide.
         /// </summary>
         public GameObject FitToScanOverlay;
-        public GameObject FAPS_Machine;
         public ARCoreSessionConfig config;
 
         public Trackable image_;
@@ -196,7 +204,7 @@ namespace GoogleARCore.Examples.AugmentedImage
 
             ///////////////////////////////// Handling of Touch Interactions
 
-            if (!isfinished && !SimulateWithMouse && !UserGUI.EnableCloud)
+            if (!isfinished && !SimulateWithMouse)
             {
                 Touch touch;
                 if ((Input.touchCount < 1 || (touch = Input.GetTouch(0)).phase != TouchPhase.Began))
@@ -236,7 +244,7 @@ namespace GoogleARCore.Examples.AugmentedImage
 
                 }
             }
-            else if (!UserGUI.EnableCloud)
+            else 
             {
                 if (!isfinished && Input.GetMouseButtonDown(0))
                 {
@@ -267,15 +275,27 @@ namespace GoogleARCore.Examples.AugmentedImage
         IEnumerator InstantiateWithDelay(AugmentedImage image)
         {
             yield return new WaitForSeconds(1.0f);
-
-            // Maschine wird offline instanziert
-            if (!UserGUI.EnableCloud)
+            // Find suitable Machine Prefab
+            GameObject FAPS_Machine = null;
+            foreach (ImageNameMatch match in ImageNameMatches)
             {
+                if (match.ImageName == image.Name)
+                {
+                    FAPS_Machine = match.InstantiateObject;
+                    break;
+                }
+            }
+            if (FAPS_Machine != null)
+            {
+                // Maschine wird offline instanziert
                 if (image != null) image_ = image;
                 GameObject fapsMachine = null;
                 User_GUI.GUI_Debug("Image is fully tracked");
                 Anchor anchorMachine = FloorSurface_Machine.CreateAnchor(hit.Pose);
                 fapsMachine = Instantiate(FAPS_Machine);
+
+                
+                
 
                 fapsMachine.transform.parent = anchorMachine.transform;
                 if (fapsMachine.GetComponent<MachineScript>() != null)
@@ -325,67 +345,7 @@ namespace GoogleARCore.Examples.AugmentedImage
                 User_GUI.Set_HelperMsg("Select your machine via the FAPS menu in order to:\nRotate and translate the object by 2-/3" +
                     " finger swiping\nGet machine data by clicking on e.g. the motors\nCheck out the FAPS menu for further possibilities.");
             }
-            // Maschine wird online als Cloudanchor instanziert
-            else if (UserGUI.EnableCloud /*&& _CanPlaceStars()*/)
-            {
-               
-                if (image != null) image_ = image;
-                GameObject fapsMachine = null;
-                User_GUI.GUI_Debug("Image is fully tracked and Cloud enabled");
-                Anchor anchorMachine = FloorSurface_Machine.CreateAnchor(hit.Pose);
-
-                // fapsMachine = GameObject.Find("LocalPlayer").GetComponent<LocalPlayerController>().CmdSpawnMachine(Vector3.zero, Quaternion.identity);
-
-
-                fapsMachine.transform.parent = anchorMachine.transform;
-                if (fapsMachine.GetComponent<MachineScript>() != null)
-                {
-                    fapsMachine.GetComponent<MachineScript>().trackable = FloorSurface_Machine;
-                    if (image != null) fapsMachine.GetComponent<MachineScript>().TrackableImage = image;
-                }
-                fapsMachine.transform.rotation = hit.Pose.rotation;
-
-                if (image != null) fapsMachine.transform.LookAt(new Vector3(fapsMachine.transform.position.x - image.CenterPose.up.x * 3, fapsMachine.transform.position.y, fapsMachine.transform.position.z - image.CenterPose.up.z * 3));
-
-                // Position so anpassen, dass Referencepunkt auf der ImagePosition sitzt
-                if ((image != null) && fapsMachine.GetComponent<MachineScript>() != null)
-                {
-                    Vector3 referencePosition = fapsMachine.GetComponent<MachineScript>().ReferencePoint.transform.position - image.CenterPose.position;
-                    fapsMachine.transform.position = new Vector3((fapsMachine.transform.position - referencePosition).x, hit.Pose.position.y, (fapsMachine.transform.position - referencePosition).z);
-                }
-                if (image != null) User_GUI.GUI_Debug("CLOUD Instantiate Rotation Angle: " + Vector3.Angle(Vector3.forward, -image.CenterPose.up) + " vs " + Vector3.Angle(Vector3.forward, fapsMachine.transform.forward));
-
-                if (fapsMachine.GetComponent<MachineScript>() != null)
-                {
-
-                    User_GUI.AddMachineSelectable(fapsMachine);
-                    Session.GetTrackables<DetectedPlane>(m_NewPlanes, TrackableQueryFilter.All);
-                    for (int i = 0; i < m_NewPlanes.Count; i++)
-                    {
-                        if (FloorSurface_Machine == m_NewPlanes[i])
-                        {
-                            User_GUI.GUI_Debug("CLOUD Found FloorSurfaceMachine");
-                            fapsMachine.GetComponent<MachineScript>().Surface = m_NewPlanes[i];
-                            fapsMachine.GetComponent<MachineScript>().surfacePlaneHeight = m_NewPlanes[i].CenterPose.position.y;
-                            break;
-                        }
-                    }
-                    fapsMachine.GetComponent<MachineScript>().Initialize();
-
-                }
-
-
-
-
-                isfinished = true;
-
-                // Jetzt kein Image Tracking mehr!
-                config.AugmentedImageDatabase = null;
-                interactor.Functionenabled = true;
-                User_GUI.GUI_Debug("Done");
-                User_GUI.Set_HelperMsg("Select your machine via the FAPS menu in order to:\nRotate and translate the object by 2-/3" +
-                    " finger swiping\nGet machine data by clicking on e.g. the motors\nCheck out the FAPS menu for further possibilities.");
-            }
-        }
+        }      
+        
     }
 }
