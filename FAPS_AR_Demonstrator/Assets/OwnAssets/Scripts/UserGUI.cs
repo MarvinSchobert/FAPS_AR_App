@@ -325,15 +325,16 @@ public class UserGUI : MonoBehaviour
         SelectedMotorInfo.VisibleWindows = info.VisibleWindows;
         SelectedMotorInfo.MessageItems = info.MessageItems;
         LowInfoField.SetActive(true);
-        if (change)
+
+        // Conveyor Motor selektiert
+        if (SelectedMotorInfo.IsMotor)
         {
-            // Motor selektiert
-            if (SelectedMotorInfo.IsMotor)
+            MotorInfoText.GetComponent<UnityEngine.UI.Text>().text = SelectedMotorInfo.MotorName + "\n" + SelectedMotorInfo.Parameter;
+            MotorWindow.SetActive(true);
+
+            /*
+            if (change)
             {
-                MotorInfoText.GetComponent<UnityEngine.UI.Text>().text = SelectedMotorInfo.MotorName + "\n" + SelectedMotorInfo.Parameter;
-                MotorWindow.SetActive(true);
-
-
                 foreach (Transform t in MotorWindow.transform.GetComponentInChildren<Transform>())
                 {
                     if (t.parent == MotorWindow.transform)
@@ -395,14 +396,17 @@ public class UserGUI : MonoBehaviour
                         }
                     }
                 }
-                PortalWindow.SetActive(false);
-            }
-
-            // Linearachse selektiert
-            else if (SelectedMotorInfo.IsPortalAxes)
+            }*/
+            PortalWindow.SetActive(false);
+        }
+        // Linearachse selektiert
+        else if (SelectedMotorInfo.IsPortalAxes)
+        {
+            MotorInfoText.GetComponent<UnityEngine.UI.Text>().text = SelectedMotorInfo.MotorName + "\n" + SelectedMotorInfo.Parameter;
+            PortalWindow.SetActive(true);
+            /*
+            if (change)
             {
-                MotorInfoText.GetComponent<UnityEngine.UI.Text>().text = SelectedMotorInfo.MotorName + "\n" + SelectedMotorInfo.Parameter;
-                PortalWindow.SetActive(true);
                 //Die Buttons richtig mit Hide/ Show beschriften
                 foreach (Transform t in PortalWindow.transform.GetComponentInChildren<Transform>())
                 {
@@ -504,14 +508,9 @@ public class UserGUI : MonoBehaviour
                     }
                 }
 
-                MotorWindow.SetActive(false);
-
-            }           
-        }
-        else
-        {
-            // Neuer Motor angeklickt
-        }
+            }*/
+            MotorWindow.SetActive(false);
+        }     
     }
     
     void DeselectMachine()
@@ -527,6 +526,11 @@ public class UserGUI : MonoBehaviour
         SelectableMachines.Add(selectable);
         Interactor.SetSelectedMachine(selectable);
         DetectedPlaneGen.ToggleMeshVisibility(false);
+        // Disable Motor Visibility
+        foreach (MotorScript g in selectable.GetComponent<MachineScript>().motors)
+        {
+            g.gameObject.GetComponent<MeshRenderer>().enabled = false;
+        }
 }
 
     

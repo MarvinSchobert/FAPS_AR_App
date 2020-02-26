@@ -41,9 +41,9 @@ namespace SocketIO
             if (json[0].type != JSONObject.Type.STRING) {
 				throw new SocketIOException("Invalid parameter type. " + json[0].type + " received while expecting " + JSONObject.Type.STRING);
 			}
-            Debug.Log("[SocketIO HDLE MSG PARSER] Valid parameter type");
+            // Debug.Log("[SocketIO HDLE MSG PARSER] Valid parameter type");
             if (json.Count == 1) {
-                Debug.Log("[SocketIO HDLE MSG PARSER] Return inly 1 Count");
+                // Debug.Log("[SocketIO HDLE MSG PARSER] Return inly 1 Count");
                 return new SocketIOEvent(json[0].str);
 			}
 

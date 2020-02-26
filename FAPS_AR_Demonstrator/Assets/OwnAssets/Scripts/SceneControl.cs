@@ -174,9 +174,11 @@ namespace GoogleARCore.Examples.AugmentedImage
                 }
                 else if (Input.GetMouseButtonDown(1))
                 {
+                    Debug.Log("clicked left mouse button");
                     GameObject fapsMachine = null;
                     if (FloorSurface_Machine != null && fapsMachine == null)
                     {
+                        Debug.Log("trying to invoke InstantiateWithDelay");
                         StartCoroutine(InstantiateWithDelay(null));
                         isfinished = true;
                         FitToScanOverlay.SetActive(false);
@@ -277,14 +279,23 @@ namespace GoogleARCore.Examples.AugmentedImage
             yield return new WaitForSeconds(1.0f);
             // Find suitable Machine Prefab
             GameObject FAPS_Machine = null;
+
             foreach (ImageNameMatch match in ImageNameMatches)
             {
-                if (match.ImageName == image.Name)
+                if (image!=null && match.ImageName == image.Name)
                 {
                     FAPS_Machine = match.InstantiateObject;
                     break;
                 }
             }
+            if (FAPS_Machine == null)
+            {
+                // also Simulation ohne Image Recognition
+                // ImageNameMatches braucht mindestens einen Eintrag!!!
+                FAPS_Machine = ImageNameMatches[0].InstantiateObject;
+
+            }
+
             if (FAPS_Machine != null)
             {
                 // Maschine wird offline instanziert
@@ -294,7 +305,7 @@ namespace GoogleARCore.Examples.AugmentedImage
                 Anchor anchorMachine = FloorSurface_Machine.CreateAnchor(hit.Pose);
                 fapsMachine = Instantiate(FAPS_Machine);
 
-                
+                Debug.Log("Instantiating FAPS Machine from coroutine");
                 
 
                 fapsMachine.transform.parent = anchorMachine.transform;

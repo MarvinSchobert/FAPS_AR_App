@@ -43,7 +43,7 @@ namespace SocketIO
 		#region Public Properties
 
 		public string url = "ws://cloud.faps.uni-erlangen.de:8095/socket.io/?EIO=4&transport=websocket";
-		public bool autoConnect = true;
+		public bool autoConnect = false;
 		public int reconnectDelay = 5;
 		public float ackExpirationTime = 1800f;
 		public float pingInterval = 25f;
@@ -248,15 +248,12 @@ namespace SocketIO
 		private void RunSocketThread(object obj)
 		{
 			WebSocket webSocket = (WebSocket)obj;
-            //float Timer = Time.time;
 			while(connected){
 				if(webSocket.IsConnected){
 					Thread.Sleep(reconnectDelay);
-				} //else if (Time.time - Timer > 1.0f){
-                    // jede Sekunde einmal versuchen
-					webSocket.Connect();
-                    //Timer = Time.time;
-				//}
+				}else{
+                    webSocket.Connect();
+				}
 			}
 			webSocket.Close();
 		}
@@ -400,7 +397,7 @@ namespace SocketIO
 
 		private void OnError(object sender, ErrorEventArgs e)
 		{
-            Debug.Log(e.Message);
+            if (ShowDebug) Debug.Log(e.Message);
 			EmitEvent("error");
 		}
 
@@ -416,7 +413,11 @@ namespace SocketIO
 
 		private void EmitEvent(SocketIOEvent ev)
 		{
-			if (!handlers.ContainsKey(ev.name)) { return; }
+            // Debug.Log("[SocketIO Emit Event] ev.name: " + ev.name);
+            if (!handlers.ContainsKey(ev.name)) {
+                // Debug.Log("[SocketIO Emit Event] returning");
+
+                return; }
 			foreach (Action<SocketIOEvent> handler in this.handlers[ev.name]) {
 				try{
 					handler(ev);

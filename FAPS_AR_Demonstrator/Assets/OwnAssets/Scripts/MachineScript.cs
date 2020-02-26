@@ -21,7 +21,8 @@ public class MachineScript : MonoBehaviour
     public CheckHumanCollision CheckHumanCollision;
 
     // JSON Infos
-    public JSONObject CloudInputInformation;
+    public JSONObject CloudInputInformationConveyor = null;
+    public JSONObject CloudInputInformationPortal = null;
     public bool HasChangedMotorInputValues;
     public bool HasChangedPortalInputValues;
     public float LastMotorInfoChange;
@@ -78,7 +79,6 @@ public class MachineScript : MonoBehaviour
         user_gui.GUI_Debug("Translated y by: " + (transform.position.y - lowest));
         anchor = transform.parent;
         transform.position = new Vector3(transform.position.x, transform.position.y + (surfacePlaneHeight - lowest), transform.position.z);
-        // GetComponentInChildren<CheckHumanCollision>().machineScript = this;
 
         Init_Transform_GameObject = new GameObject();
         Init_Transform_GameObject.transform.position = transform.position;
@@ -103,14 +103,12 @@ public class MachineScript : MonoBehaviour
         {
             g.SetActive(false);
         }
+        MachineSocketIOWrapper wrapper = GameObject.Find("FAPS_AR_SCENE").GetComponent<MachineSocketIOWrapper>();
+        wrapper._arrMachineScript.Add(this);
 
-        /*
-        cb = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cb.transform.localScale *= 0.1f;
-        cb.transform.position = Surface.CenterPose.position;
-        ipos = cb.transform.position;
-        */
-        StartCoroutine(simulate());
+        
+
+        // StartCoroutine(simulate());
         StartCoroutine(_Update());
 
         
@@ -168,7 +166,6 @@ public class MachineScript : MonoBehaviour
         {
             c.transform.position = new Vector3(anchor.transform.position.x, Surface.CenterPose.position.y, anchor.transform.position.z);
 
-
             // Wenn das ursprüngliche Bild wieder entdeckt wird, korrigiere Transform entsprechend
             if ((TrackableImage != null) && LostImageTracking && TrackableImage.TrackingMethod == GoogleARCore.AugmentedImageTrackingMethod.FullTracking)
             {
@@ -193,192 +190,416 @@ public class MachineScript : MonoBehaviour
             }
 
             /////////////////////////////////////////////////////// Update Info Values
-
-            if (HasChangedMotorInputValues && Time.time - LastMotorInfoChange > 1f)
+            float _temp = Time.time;
+            if (HasChangedMotorInputValues && _temp - LastMotorInfoChange > 0.5f)
             {
                 HasChangedMotorInputValues = false;
-                LastMotorInfoChange = Time.time;
-                StartCoroutine(EvaluateJsonObject(CloudInputInformation, 0));
+                LastMotorInfoChange = _temp;
+                EvaluateJsonObject(CloudInputInformationConveyor, 0);
             }
-            if (HasChangedPortalInputValues && Time.time - LastPortalInfoChange > 1f)
+
+            if (HasChangedPortalInputValues && _temp - LastPortalInfoChange > 0.5f)
             {
                 HasChangedPortalInputValues = false;
-                LastPortalInfoChange = Time.time;
-                StartCoroutine(EvaluateJsonObject(CloudInputInformation, 1));
+                LastPortalInfoChange = _temp;
+                EvaluateJsonObject(CloudInputInformationPortal, 1);
             }
 
-            yield return null;
+            yield return new WaitForSeconds(0.1f);
         }
     }
+    string LinearAchse_fertig = "";
+    string Produkt_Band2_Bereit = "";
+    string AGV_bereit = "";
+    string Produkt_wartet_auf_Abgabe = "";
 
-    public IEnumerator EvaluateJsonObject(JSONObject j, int mode)
+
+    void EvaluateJsonObject(JSONObject _jsonObject, int mode)
     {
         //  Receive JSON message and convert string to a text that can be displayed on the GUI window
         //  ggf. über den string das machen
 
-        // mode 0: Motoren, mode 1: Portal
-        // Hier wird bereits vorgefiltert: 
-        // Motoren der Conveyorbänder haben genau den gleichen Namen der Parameter
-        // die Portalachse hat X/ Y/ Z im Namen!
-        float timeStart = Time.realtimeSinceStartup;
-        string msg = "";
-        if (j != null)
-        {
-            msg = j.Print();
-        }else if (mode == 0)
-        {
-            // Test-message übermitteln
-            int rdValue1 = Random.Range(0, 10);
-            int rdValue2 = Random.Range(0, 10);
-            int rdValue3 = Random.Range(0, 10);
-
-            msg = "\\\"Motor_Band_1_Velocity\\\": "+ rdValue1+ ",\\\"Motor_Band_1_Acceleration\\\": 0,\\\"Motor_Band_1_Power\\\": " + rdValue2 + ",\\\"Motor_Band_2_Velocity\\\": " + rdValue3 + ",\\\"Motor_Band_2_Acceleration\\\": 1,     " +
-                "\\\"Motor_Band_2_Power\\\": " + rdValue2 + ",\\\"Motor_Band_3_Velocity\\\": 3,\\\"Motor_Band_3_Acceleration\\\": 0,\\\"Motor_Band_3_Power\\\": 0,\\\"Motor_Umsetzer_11_Velocity\\\": 6," +
-                "\\\"Motor_Umsetzer_11_Acceleration\\\": " + rdValue3 + ",\\\"Motor_Umsetzer_11_Power\\\": 4,\\\"Motor_Umsetzer_12_Velocity\\\": 8, \\\"Motor_Umsetzer_12_Acceleration\\\": 0," +
-                "\\\"Motor_Umsetzer_12_Power\\\": 0,\\\"Motor_Umsetzer_21_Velocity\\\": " + rdValue1 + ",\\\"Motor_Umsetzer_21_Acceleration\\\": " + rdValue3 + ",\\\"Motor_Umsetzer_21_Power\\\": 2," +
-                "\\\"Motor_Umsetzer_22_Velocity\\\": " + rdValue2 + ",\\\"Motor_Umsetzer_22_Acceleration\\\": 0,\\\"Motor_Umsetzer_22_Power\\\": " + rdValue1 + ",\\\"Linearachse_Fertig\\\": " + MachineReady.ToString()+ "}";
-            
-        }
+        // Portal hat halt nur einen, Conveyor hat viele Listeneinträge
         
-        List<string[,]> str = new List<string[,]>();
-        // Manuell Json file auflösen in String
-        int KeyCounter = -1; 
-        for (int i = 0; i < msg.Length; i++)
-        {
+        string message = _jsonObject.ToString();
 
-            if (msg[i].ToString() == "\\" && msg[++i].ToString() == "\"")
-            {
-                KeyCounter++;
-                // Key name in array
-                string[,] s = new string[1, 2];
+        List<List<string>> searchKeyConveyor = new List<List<string>>();
+        
+        List<string> m1 = new List<string>() { "Motor_Band_1_Velocity", "Motor_Band_1_Acceleration", "Motor_Band_1_Power" };
+        searchKeyConveyor.Add(m1);
 
-                while (msg[++i].ToString() != "\\")
-                {
-                    s[0, 0] += msg[i].ToString();
-                }
-                i += 2;
-                // Value in array
-                while (msg[++i].ToString() != "," && msg[i].ToString() != "}")
-                {
-                    s[0, 1] += msg[i].ToString();
-                }
-                str.Add(s);
-            }
-        }        
-        // user_gui.GUI_Debug("Zeit Schritt 1: " + (Time.realtimeSinceStartup - timeStart));
-        // timeStart = Time.realtimeSinceStartup;
-        // Conveyor Motor
-        if (mode == 0)
+        List<string> m2 = new List<string>() { "Motor_Band_2_Velocity", "Motor_Band_2_Acceleration", "Motor_Band_2_Power" };
+        searchKeyConveyor.Add(m2);
+
+        List<string> m3 = new List<string>() { "Motor_Band_3_Velocity", "Motor_Band_3_Acceleration", "Motor_Band_3_Power" };
+        searchKeyConveyor.Add(m3);
+
+        List<string> m4 = new List<string>() { "Motor_Umsetzer_11_Velocity", "Motor_Umsetzer_11_Acceleration", "Motor_Umsetzer_11_Power" };
+        searchKeyConveyor.Add(m4);
+
+        List<string> m5 = new List<string>() { "Motor_Umsetzer_12_Velocity", "Motor_Umsetzer_12_Acceleration", "Motor_Umsetzer_12_Power" };
+        searchKeyConveyor.Add(m5);
+
+        List<string> m6 = new List<string>() { "Motor_Umsetzer_21_Velocity", "Motor_Umsetzer_21_Acceleration", "Motor_Umsetzer_21_Power" };
+        searchKeyConveyor.Add(m6);
+
+        List<string> m7 = new List<string>() { "Motor_Umsetzer_22_Velocity", "Motor_Umsetzer_22_Acceleration", "Motor_Umsetzer_22_Power" };
+        searchKeyConveyor.Add(m7);
+
+
+        List<string> searchKeyPortal = new List<string> { "encoder_values_x", "encoder_values_y"}; 
+
+        if (mode == 0) // Conveyormotor bzw. Bandantrieb
         {
-            // Jetzt noch für das Result filtern für die verschiedenen Typen: 
-            string f = "";
-            for (int x = 0; x < str.Count; x++)
+            Debug.Log("[MachineSkript] conveyormotor evaluating");
+
+            // Für jeden Motor einen Listeneintrag in result
+            List<string> result = new List<string>();
+
+            // Motoren
+            foreach (List<string> SearchKeyN in searchKeyConveyor)
             {
-                f += str[x][0, 0] + ", ";
-            }
-            //user_gui.GUI_Debug(f);
-            foreach (MotorScript m in motors)
-            {
-                List <string> s1 = new List<string>();
-                string s2 = "";
-                for (int i = 0; i < str.Count; i++)
+                string resultEntry = "";
+                // Parameter in Motoren
+                foreach (string SearchKey in SearchKeyN)
                 {
-                    // Wenn der Motorname vorhanden ist
-                    if (str[i][0, 0].Contains(m.transform.parent.name))
+                    
+                    int index = message.IndexOf(SearchKey);
+                    resultEntry += SearchKey + " ";
+                    // Maximal 10 an Key folgende Zeichen nehmen
+                    index += SearchKey.Length + 2;
+                    for (int i = 0; i < 10; i++)
                     {
-                        // Für Parameter
-                        s2 += str[i][0, 0] + ": " + str[i][0, 1] + "\n";
-                        // Update Canvas Parameter
-                        if (str[i][0, 0].Contains("Acceleration"))
+                        // Beim Komma abbrechen!
+                        if (message[index + i].ToString() != ",".ToString())
                         {
-                            s1.Add ("Acceleration: " + str[i][0, 1]);
+                            resultEntry += message[index + i];
                         }
-                        else if (str[i][0, 0].Contains("Power"))
+                        else
                         {
-                            s1.Add("Power: " + str[i][0, 1]);
+                            break;
                         }
-                        else if (str[i][0, 0].Contains("Velocity"))
-                        {
-                            s1.Add("Velocity: " + str[i][0, 1]);
-                        }
-                    }
-                    else if (str[i][0, 0].Contains("Linearachse_Fertig"))
+                    }                   
+                    resultEntry += "\n";
+                }
+                result.Add(resultEntry);
+                Debug.Log("[MachineSkript] result ConveyorMotor: " + resultEntry);
+            }
+
+            // Linearachsen Message rausfiltern
+            int index1 = message.IndexOf("Linearachse_Fertig");
+            LinearAchse_fertig = "Linearachse_Fertig: ";
+            index1 += "Linearachse_Fertig".Length + 2;
+            for (int i = 0; i < 10; i++)
+            {
+                // Beim Klammer zu abbrechen!
+                if (message[index1 + i].ToString() != "}".ToString())
+                {
+                    LinearAchse_fertig += message[index1 + i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+            LinearAchse_fertig += "\n";
+
+            // Band 2 Bereit Message rausfiltern
+            index1 = message.IndexOf("Produkt_Band2_Bereit");
+            Produkt_Band2_Bereit = "Produkt_Band2_Bereit: ";
+            index1 += "Produkt_Band2_Bereit".Length + 2;
+            for (int i = 0; i < 10; i++)
+            {
+                // Beim Komma abbrechen!
+                if (message[index1 + i].ToString() != ",".ToString())
+                {
+                    Produkt_Band2_Bereit += message[index1 + i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+            Produkt_Band2_Bereit += "\n";
+
+            // AGV bereit Message rausfiltern
+            index1 = message.IndexOf("AGV_bereit");
+            AGV_bereit = "AGV_bereit: ";
+            index1 += "AGV_bereit".Length + 2;
+            for (int i = 0; i < 10; i++)
+            {
+                // Beim Komma abbrechen!
+                if (message[index1 + i].ToString() != ",".ToString())
+                {
+                    AGV_bereit += message[index1 + i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+            AGV_bereit += "\n";
+
+
+            // Produkt_wartet_auf_Abgabe Message rausfiltern
+            index1 = message.IndexOf("Produkt_wartet_auf_Abgabe");
+            Produkt_wartet_auf_Abgabe = "Produkt_wartet_auf_Abgabe: ";
+            index1 += "Produkt_wartet_auf_Abgabe".Length + 2;
+            for (int i = 0; i < 10; i++)
+            {
+                // Beim Komma abbrechen!
+                if (message[index1 + i].ToString() != ",".ToString())
+                {
+                    Produkt_wartet_auf_Abgabe += message[index1 + i];
+                }
+                else
+                {
+                    break;
+                }
+            }
+            Produkt_wartet_auf_Abgabe += "\n";
+
+            // Jetzt zu jedem Motor den richtigen String reinkopieren
+            for (int i = 0; i < motors.Length; i++)
+            {
+                if (motors[i].IsConveyorMotor)
+                {
+                    for (int j = 0; j < result.Count; j++)
                     {
-                        // Sperrbereich darf ggf. betreten werden
-                        if (str[i][0,1].Contains("True"))
+                        if (result[j].Contains(motors[i].Info.MotorName))
                         {
-                            if (!user_gui.AllowEnter)
+                            result[j] = result[j].Replace(motors[i].Info.MotorName+"_", "");
+                            List<string> lis = new List<string> { result[j] };
+                            motors[i].Info.Canvas_Parameter = lis;
+                            motors[i].Info.Parameter = result[j];
+                            Debug.Log("[MachineSkript] adding Result to Motor " + motors[i].Info.MotorName + ": " + result[j]);
+                            if (motors[i].activated)
                             {
-                                user_gui.AllowEnter = true;
-                                StartCoroutine(user_gui.ToggleWall());
-                                // user_gui.GUI_Debug("Now detected Machine is ready");
+                                user_gui.ReplaceMotorInfo(motors[i].Info, false);
                             }
-                        }
-                        // Sperrbereich darf ggf. nicht mehr betreten werden
-                        else if (str[i][0, 1].Contains("False"))
-                        {
-                            if (user_gui.AllowEnter)
-                            {
-                                user_gui.AllowEnter = false;
-                                StartCoroutine(user_gui.ToggleWall());
-                                // user_gui.GUI_Debug("Now detected Machine not ready");
-                            }
-                        }else
-                        {
-                            // user_gui.GUI_Debug(str[i][0,0] + " "+ str[i][0,1]);
+                            break;
                         }
                     }
                 }
-            
-                if (m.IsConveyorMotor)
-                {
-                    m.Info.Canvas_Parameter = s1;
-                    m.Info.Parameter = s2;
-                    if (m.activated)
-                    {
-                        // Update current information on sign                        
-                        user_gui.ReplaceMotorInfo(m.Info, false);
-                    }
-                }
             }
+
+
         }
-        // Portal Motor
-        else if (mode == 1)
+        else if (mode == 1) // Linearachse bzw. Portalmotor
         {
-            // Jetzt noch für das Result filtern für die verschiedenen Typen: 
-            for (int i = 0; i < str.Count; i++)
+           
+            string result = "";
+
+            // Parameter in Motoren
+            foreach (string SearchKey in searchKeyPortal)
             {
-                foreach (MotorScript m in motors)
+                int index = message.IndexOf(SearchKey);
+                result += SearchKey + " ";
+                // Maximal 10 an Key folgende Zeichen nehmen
+                index += SearchKey.Length + 2;
+                for (int i = 0; i < 10; i++)
                 {
-                    // Wenn der Motorname vorhanden ist
-                    if (str[i][0, 0].Contains("_x"))
+                    // Beim Komma abbrechen!
+                    if (message[index + i].ToString() != ",".ToString())
                     {
-                        // Für Parameter
-                        m.Info.Parameter += str[i][0, 0] + ": " + str[i][0, 1] + "\n";
-                        // Update Canvas Parameter
-                        
+                        result += message[index + i];
+                    }
+                    else
+                    {
                         break;
                     }
                 }
+                result += "\n";
             }
-            
 
-            foreach (MotorScript m in motors)
+            // Jetzt zu jedem Motor den richtigen String reinkopieren
+            for (int i = 0; i < motors.Length; i++)
             {
-                if (m.IsPortalAxes)
-                {    
-                    if (m.activated)
+                if (motors[i].IsPortalAxes)
+                {
+                    List<string> lis = new List<string> { result + LinearAchse_fertig };
+                    Debug.Log("[MachineSkript] adding Result to Portal: " + result + LinearAchse_fertig + AGV_bereit + Produkt_Band2_Bereit + Produkt_wartet_auf_Abgabe);
+                    motors[i].Info.Canvas_Parameter = lis;
+                    motors[i].Info.Parameter = result + LinearAchse_fertig + AGV_bereit + Produkt_Band2_Bereit + Produkt_wartet_auf_Abgabe;
+
+                    if (motors[i].activated)
                     {
-                        // Update current information on sign
-                        user_gui.ReplaceMotorInfo(m.Info, false);
+                        user_gui.ReplaceMotorInfo(motors[i].Info, false);
                     }
+
+                    // break auskommentieren falls mehrere Portalachsen irgendwann da sind
+                    break;
                 }
             }
 
-            
+
         }
-        // user_gui.GUI_Debug("Zeit Schritt 2: " + (Time.realtimeSinceStartup - timeStart));
-        yield return null;
+
+
+        /*
+                // mode 0: Motoren, mode 1: Portal
+                // Hier wird bereits vorgefiltert: 
+                // Motoren der Conveyorbänder haben genau den gleichen Namen der Parameter
+                // die Portalachse hat X/ Y/ Z im Namen!
+                float timeStart = Time.realtimeSinceStartup;
+                string msg = "";
+                if (_jsonObject != null)
+                {
+                    msg = _jsonObject.Print();
+                }else if (mode == 0)
+                {
+                    // Test-message übermitteln
+                    int rdValue1 = Random.Range(0, 10);
+                    int rdValue2 = Random.Range(0, 10);
+                    int rdValue3 = Random.Range(0, 10);
+
+                    msg = "\\\"Motor_Band_1_Velocity\\\": "+ rdValue1+ ",\\\"Motor_Band_1_Acceleration\\\": 0,\\\"Motor_Band_1_Power\\\": " + rdValue2 + ",\\\"Motor_Band_2_Velocity\\\": " + rdValue3 + ",\\\"Motor_Band_2_Acceleration\\\": 1,     " +
+                        "\\\"Motor_Band_2_Power\\\": " + rdValue2 + ",\\\"Motor_Band_3_Velocity\\\": 3,\\\"Motor_Band_3_Acceleration\\\": 0,\\\"Motor_Band_3_Power\\\": 0,\\\"Motor_Umsetzer_11_Velocity\\\": 6," +
+                        "\\\"Motor_Umsetzer_11_Acceleration\\\": " + rdValue3 + ",\\\"Motor_Umsetzer_11_Power\\\": 4,\\\"Motor_Umsetzer_12_Velocity\\\": 8, \\\"Motor_Umsetzer_12_Acceleration\\\": 0," +
+                        "\\\"Motor_Umsetzer_12_Power\\\": 0,\\\"Motor_Umsetzer_21_Velocity\\\": " + rdValue1 + ",\\\"Motor_Umsetzer_21_Acceleration\\\": " + rdValue3 + ",\\\"Motor_Umsetzer_21_Power\\\": 2," +
+                        "\\\"Motor_Umsetzer_22_Velocity\\\": " + rdValue2 + ",\\\"Motor_Umsetzer_22_Acceleration\\\": 0,\\\"Motor_Umsetzer_22_Power\\\": " + rdValue1 + ",\\\"Linearachse_Fertig\\\": " + MachineReady.ToString()+ "}";
+
+                }
+
+                List<string[,]> str = new List<string[,]>();
+                // Manuell Json file auflösen in String
+                int KeyCounter = -1; 
+                for (int i = 0; i < msg.Length; i++)
+                {
+
+                    if (msg[i].ToString() == "\\" && msg[++i].ToString() == "\"")
+                    {
+                        KeyCounter++;
+                        // Key name in array
+                        string[,] s = new string[1, 2];
+
+                        while (msg[++i].ToString() != "\\")
+                        {
+                            s[0, 0] += msg[i].ToString();
+                        }
+                        i += 2;
+                        // Value in array
+                        while (msg[++i].ToString() != "," && msg[i].ToString() != "}")
+                        {
+                            s[0, 1] += msg[i].ToString();
+                        }
+                        str.Add(s);
+                    }
+                }        
+                // user_gui.GUI_Debug("Zeit Schritt 1: " + (Time.realtimeSinceStartup - timeStart));
+                // timeStart = Time.realtimeSinceStartup;
+                // Conveyor Motor
+                if (mode == 0)
+                {
+                    // Jetzt noch für das Result filtern für die verschiedenen Typen: 
+                    string f = "";
+                    for (int x = 0; x < str.Count; x++)
+                    {
+                        f += str[x][0, 0] + ", ";
+                    }
+                    //user_gui.GUI_Debug(f);
+                    foreach (MotorScript m in motors)
+                    {
+                        List <string> s1 = new List<string>();
+                        string s2 = "";
+                        for (int i = 0; i < str.Count; i++)
+                        {
+                            // Wenn der Motorname vorhanden ist
+                            if (str[i][0, 0].Contains(m.transform.parent.name))
+                            {
+                                // Für Parameter
+                                s2 += str[i][0, 0] + ": " + str[i][0, 1] + "\n";
+                                // Update Canvas Parameter
+                                if (str[i][0, 0].Contains("Acceleration"))
+                                {
+                                    s1.Add ("Acceleration: " + str[i][0, 1]);
+                                }
+                                else if (str[i][0, 0].Contains("Power"))
+                                {
+                                    s1.Add("Power: " + str[i][0, 1]);
+                                }
+                                else if (str[i][0, 0].Contains("Velocity"))
+                                {
+                                    s1.Add("Velocity: " + str[i][0, 1]);
+                                }
+                            }
+                            else if (str[i][0, 0].Contains("Linearachse_Fertig"))
+                            {
+                                // Sperrbereich darf ggf. betreten werden
+                                if (str[i][0,1].Contains("True"))
+                                {
+                                    if (!user_gui.AllowEnter)
+                                    {
+                                        user_gui.AllowEnter = true;
+                                        StartCoroutine(user_gui.ToggleWall());
+                                        // user_gui.GUI_Debug("Now detected Machine is ready");
+                                    }
+                                }
+                                // Sperrbereich darf ggf. nicht mehr betreten werden
+                                else if (str[i][0, 1].Contains("False"))
+                                {
+                                    if (user_gui.AllowEnter)
+                                    {
+                                        user_gui.AllowEnter = false;
+                                        StartCoroutine(user_gui.ToggleWall());
+                                        // user_gui.GUI_Debug("Now detected Machine not ready");
+                                    }
+                                }else
+                                {
+                                    // user_gui.GUI_Debug(str[i][0,0] + " "+ str[i][0,1]);
+                                }
+                            }
+                        }
+
+                        if (m.IsConveyorMotor)
+                        {
+                            m.Info.Canvas_Parameter = s1;
+                            m.Info.Parameter = s2;
+                            if (m.activated)
+                            {
+                                // Update current information on sign                        
+                                user_gui.ReplaceMotorInfo(m.Info, false);
+                            }
+                        }
+                    }
+                }
+                // Portal Motor
+                else if (mode == 1)
+                {
+                    // Jetzt noch für das Result filtern für die verschiedenen Typen: 
+                    for (int i = 0; i < str.Count; i++)
+                    {
+                        foreach (MotorScript m in motors)
+                        {
+                            // Wenn der Motorname vorhanden ist
+                            if (str[i][0, 0].Contains("_x"))
+                            {
+                                // Für Parameter
+                                m.Info.Parameter += str[i][0, 0] + ": " + str[i][0, 1] + "\n";
+                                // Update Canvas Parameter
+
+                                break;
+                            }
+                        }
+                    }
+
+
+                    foreach (MotorScript m in motors)
+                    {
+                        if (m.IsPortalAxes)
+                        {    
+                            if (m.activated)
+                            {
+                                // Update current information on sign
+                                user_gui.ReplaceMotorInfo(m.Info, false);
+                            }
+                        }
+                    }
+
+
+                }
+                // user_gui.GUI_Debug("Zeit Schritt 2: " + (Time.realtimeSinceStartup - timeStart));
+                */
     }
 
 

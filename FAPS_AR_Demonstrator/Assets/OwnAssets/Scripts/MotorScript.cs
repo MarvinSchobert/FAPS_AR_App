@@ -109,7 +109,13 @@ public class MotorScript : MonoBehaviour
             Canvas.transform.LookAt(Canvas.transform.position + (Canvas.transform.position - Camera.main.transform.position));
 
             string s = "";
-            for (int i = 0; i < Info.Canvas_Parameter.Count; i++)
+            if (Info.Canvas_Parameter.Count > 0) {s = Info.Canvas_Parameter[0]; }
+            else
+            {
+                s = Info.Parameter;
+            }
+           
+            /*for (int i = 0; i < Info.Canvas_Parameter.Count; i++)
             {
                 foreach (UserGUI.InfoVisible inf in Info.VisibleWindows)
                 {
@@ -123,7 +129,7 @@ public class MotorScript : MonoBehaviour
                         Debug.Log("is false");
                     }
                 }
-            }
+            }*/
             Canvas.GetComponentInChildren<UnityEngine.UI.Text>().text = s;
             if (activated)
             {
